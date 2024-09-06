@@ -4,30 +4,7 @@ config();
 
 // Import uuid for generating unique IDs
 import { v4 as uuidv4 } from 'uuid';
-
-// Base62 encoding characters
-const base62Chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-// Function to encode a BigInt as a base62 string
-function encodeBase62(number) {
-  if (number === 0n) return '0';
-  let encoded = '';
-  while (number > 0n) {
-    encoded = base62Chars[number % 62n] + encoded;
-    number = number / 62n;
-  }
-  return encoded;
-}
-
-// Function to convert UUID to a base62 encoded string
-function uuidToBase62(uuid) {
-  // Remove hyphens from UUID and convert to a BigInt
-  const hex = uuid.replace(/-/g, '');
-  const bigInt = BigInt(`0x${hex}`);
-  
-  // Convert BigInt to base62
-  return encodeBase62(bigInt);
-}
+import { uuidToBase62 } from './utils/base62';
 
 // Dynamically populate baseURL based on environment
 const isProd = process.env.APP_ENV === 'production';
