@@ -5,12 +5,14 @@ config();
 // Import uuid for generating unique IDs
 import { v4 as uuidv4 } from 'uuid';
 import { uuidToBase62 } from './utils/base62';
+import { rateLimit } from './utils/rateLimiter';
 
 // Dynamically populate baseURL based on environment
 const isProd = process.env.APP_ENV === 'production';
 
 export async function POST({ request }) {
   try {
+    await rateLimit(request.ip);
     const data = await request.json();
     const original_url = data.original_url;
 
