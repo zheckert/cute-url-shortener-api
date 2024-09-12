@@ -13,11 +13,22 @@ const isProd = process.env.APP_ENV === 'production';
 export async function POST({ request }) {
   try {
     await rateLimit(request.ip);
+
     const data = await request.json();
     const original_url = data.original_url;
 
+    // Validate input before shortening
+
     if (!original_url) {
       throw new Error('Missing original_url in request body');
+    }
+
+    if (!original_url.startsWith('http')) {
+      throw new Error('Invalid URL: must start with http or https');
+    }
+
+    if (original_url.length > 2048) {
+      throw new Error('URL too long');
     }
 
     const newId = uuidv4();
@@ -41,18 +52,44 @@ export async function POST({ request }) {
     });
   } catch (error) {
     console.error(error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+
+    // Return a descriptive error message to the user
+    if (error.message === 'Missing original_url in request body') {
+      return new Response(JSON.stringify({ error: 'Please provide a URL to shorten' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } else if (error.message === 'Invalid URL: must start with http or https') {
+      return new Response(JSON.stringify({ error: 'Invalid URL: must start with http or https' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } else if (error.message === 'URL too long') {
+      return new Response(JSON.stringify({ error: 'URL too long, please shorten it' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } else {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
   }
 }
 
 export async function GET() {
   // todo: remove later. Request parameter: shortened_url (the shortened URL to redirect to)
   // todo: remove later. Response: Redirect to the original URL
+  // todo: implement rate limiting on this request
   try {
     // todo: come back to this!
   } catch (error) {
