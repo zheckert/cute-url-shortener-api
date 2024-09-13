@@ -2,10 +2,11 @@
 import { config } from 'dotenv';
 config();
 
-// Import uuid for generating unique IDs
+// Import utilities
 import { v4 as uuidv4 } from 'uuid';
 import { uuidToBase62 } from './utils/base62';
 import { rateLimit } from './utils/rateLimiter';
+import { connectToDB } from './utils/db';
 
 // Dynamically populate baseURL based on environment
 const isProd = process.env.APP_ENV === 'production';
@@ -18,7 +19,6 @@ export async function POST({ request }) {
     const original_url = data.original_url;
 
     // Validate input before shortening
-
     if (!original_url) {
       throw new Error('Missing original_url in request body');
     }
@@ -31,16 +31,36 @@ export async function POST({ request }) {
       throw new Error('URL too long');
     }
 
-    const newId = uuidv4();
-    console.log("newID", newId);
+    const db = await connectToDB();
+    const urlsCollection = db.collection('urls');
 
+    // Make sure URL hasn't already been provided and shortened
+    const existingUrl = await urlsCollection.findOne({ original_url });
+    if (existingUrl) {
+      return new Response(JSON.stringify({
+        message: `${original_url} is already shortened to ${existingUrl.shortened_url}`
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
+    const newId = uuidv4();
     // Encode the UUID using base62
     const encodedId = uuidToBase62(newId);
-    console.log("encodedID", encodedId);
 
     // Construct the shortened URL
     const baseURL = isProd ? 'https://your-production-url.com' : 'http://localhost:5173';
     const shortenedUrl = `${baseURL}/${encodedId}`;
+
+    // Store original URL and shortened equivalent in MongoDB
+    await urlsCollection.insertOne({
+      original_url,
+      shortened_url: shortenedUrl,
+      createdAt: new Date(),
+    });
 
     return new Response(JSON.stringify({
       message: `${original_url} is now ${shortenedUrl}`
