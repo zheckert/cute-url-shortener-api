@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import { uuidToBase62 } from '../../../../utils/base62';
-import { rateLimit } from '../../../../utils/rateLimiter';
-import { connectToDB } from '../../../../utils/db';
+import { uuidToBase62 } from '$lib/utils/base62';
+import { rateLimit } from '$lib/utils/rateLimiter';
+import { connectToDB } from '$lib/utils/db';
 
 const isProd = process.env.APP_ENV === 'production';
 
@@ -47,7 +47,6 @@ export async function POST({ request }) {
 
 		const newId = uuidv4();
 		const encodedId = uuidToBase62(newId);
-		const shortenedUrl = `${baseURL}/${encodedId}`;
 
 		await urlsCollection.insertOne({
 			original_url,
@@ -57,7 +56,7 @@ export async function POST({ request }) {
 
 		return new Response(
 			JSON.stringify({
-				message: `${original_url} is now ${shortenedUrl}`
+				message: `${original_url} is now ${baseURL}/${encodedId}`
 			}),
 			{
 				status: 201,
