@@ -1,24 +1,18 @@
-// Load environment variables
-import { config } from 'dotenv';
-config();
-
-// Import utilities
 import { v4 as uuidv4 } from 'uuid';
-import { uuidToBase62 } from './utils/base62';
-import { rateLimit } from './utils/rateLimiter';
-import { connectToDB } from './utils/db';
+import { uuidToBase62 } from '$lib/utils/base62';
+import { rateLimit } from '$lib/utils/rateLimiter';
+import { connectToDB } from '$lib/utils/db';
 
-// Dynamically populate baseURL based on environment
 const isProd = process.env.APP_ENV === 'production';
 
 export async function POST({ request }) {
 	try {
 		await rateLimit(request.ip);
 
+		const baseURL = isProd ? 'https://your-production-url.com' : 'http://localhost:5173';
 		const data = await request.json();
 		const original_url = data.original_url;
 
-		// Validate input before shortening
 		if (!original_url) {
 			throw new Error('Missing original_url in request body');
 		}
@@ -34,12 +28,13 @@ export async function POST({ request }) {
 		const db = await connectToDB();
 		const urlsCollection = db.collection('urls');
 
-		// Make sure URL hasn't already been provided and shortened
 		const existingUrl = await urlsCollection.findOne({ original_url });
+
 		if (existingUrl) {
+			const shortenedUrl = `${baseURL}/${existingUrl.shortened_id}`;
 			return new Response(
 				JSON.stringify({
-					message: `${original_url} is already shortened to ${existingUrl.shortened_url}`
+					message: `${original_url} is already shortened to ${shortenedUrl}`
 				}),
 				{
 					status: 200,
@@ -51,23 +46,17 @@ export async function POST({ request }) {
 		}
 
 		const newId = uuidv4();
-		// Encode the UUID using base62
 		const encodedId = uuidToBase62(newId);
 
-		// Construct the shortened URL
-		const baseURL = isProd ? 'https://your-production-url.com' : 'http://localhost:5173';
-		const shortenedUrl = `${baseURL}/${encodedId}`;
-
-		// Store original URL and shortened equivalent in MongoDB
 		await urlsCollection.insertOne({
 			original_url,
-			shortened_url: shortenedUrl,
+			shortened_id: encodedId,
 			createdAt: new Date()
 		});
 
 		return new Response(
 			JSON.stringify({
-				message: `${original_url} is now ${shortenedUrl}`
+				message: `${original_url} is now ${baseURL}/${encodedId}`
 			}),
 			{
 				status: 201,
@@ -79,7 +68,6 @@ export async function POST({ request }) {
 	} catch (error) {
 		console.error(error);
 
-		// Return a descriptive error message to the user
 		if (error.message === 'Missing original_url in request body') {
 			return new Response(JSON.stringify({ error: 'Please provide a URL to shorten' }), {
 				status: 400,
@@ -109,22 +97,5 @@ export async function POST({ request }) {
 				}
 			});
 		}
-	}
-}
-
-export async function GET() {
-	// todo: remove later. Request parameter: shortened_url (the shortened URL to redirect to)
-	// todo: remove later. Response: Redirect to the original URL
-	// todo: implement rate limiting on this request
-	try {
-		// todo: come back to this!
-	} catch (error) {
-		console.error(error);
-		return new Response(JSON.stringify({ error: error.message }), {
-			status: 500,
-			headers: {
-				'Content-Type': 'application/json'
-			}
-		});
 	}
 }
